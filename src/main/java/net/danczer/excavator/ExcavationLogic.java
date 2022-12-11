@@ -91,8 +91,6 @@ public class ExcavationLogic {
         USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.WOODEN_SHOVEL);
     }
 
-    private final static int MiningTimeShovel = 8;
-    private final static int MiningTimePickAxe = 19;
     private final static int MiningCountZ = 3;
     private final static int TorchPlacementDistance = 6;
     private final static float MaxMiningHardness = 50f; //Obsidian
@@ -110,6 +108,7 @@ public class ExcavationLogic {
     private int miningStackTick = 0;
     private int previousMiningBlockTick = 0;
 
+    public boolean isForwardFacing;
     public BlockItem railType;
     public BlockItem torchType;
     public MiningToolItem pickaxeType;
@@ -147,35 +146,6 @@ public class ExcavationLogic {
         return false;
     }
 
-    public void readNbt(NbtCompound compound) {
-
-        long miningPos = compound.getLong("miningPos");
-
-        if (miningPos == 0) {
-            this.miningPos = null;
-        } else {
-            this.miningPos = BlockPos.fromLong(miningPos);
-        }
-
-        long torchPos = compound.getLong("lastTorchPos");
-
-        if (torchPos == 0) {
-            lastTorchPos = null;
-        } else {
-            lastTorchPos = BlockPos.fromLong(torchPos);
-        }
-
-        int dirIndex = compound.getInt("miningDir");
-
-        if (dirIndex == 0) {
-            miningDir = null;
-        } else {
-            miningDir = Direction.byId(dirIndex);
-        }
-
-        miningBlockTick = compound.getInt("miningTimerTick");
-        miningStackTick = compound.getInt("miningCountTick");
-    }
 
     public void updateExcavatorToolchain() {
 
@@ -223,16 +193,52 @@ public class ExcavationLogic {
         }
     }
 
+    public void readNbt(NbtCompound compound) {
+
+        long miningPos = compound.getLong("miningPos");
+
+        if (miningPos == 0) {
+            this.miningPos = null;
+        } else {
+            this.miningPos = BlockPos.fromLong(miningPos);
+        }
+
+        long torchPos = compound.getLong("lastTorchPos");
+
+        if (torchPos == 0) {
+            lastTorchPos = null;
+        } else {
+            lastTorchPos = BlockPos.fromLong(torchPos);
+        }
+
+        int dirIndex = compound.getInt("miningDir");
+
+        if (dirIndex == 0) {
+            miningDir = null;
+        } else {
+            miningDir = Direction.byId(dirIndex);
+        }
+
+        miningBlockTick = compound.getInt("miningTimerTick");
+        miningStackTick = compound.getInt("miningCountTick");
+
+        isForwardFacing = compound.getBoolean("excavatorFacing");
+
+        LOGGER.debug("readNbt:"+isForwardFacing);
+    }
 
     public void writeNbt(NbtCompound compound) {
+        compound.putBoolean("excavatorFacing", isForwardFacing);
         compound.putLong("miningPos", miningPos == null ? 0 : miningPos.asLong());
         compound.putLong("lastTorchPos", lastTorchPos == null ? 0 : lastTorchPos.asLong());
         compound.putInt("miningDir", miningDir == null ? 0 : miningDir.getId());
         compound.putInt("miningTimerTick", miningBlockTick);
         compound.putInt("miningCountTick", miningStackTick);
+
+        LOGGER.debug("writeNbt:"+isForwardFacing);
     }
 
-    public Vec3d getDirectoryVector() {
+    public Vec3d getFacingDir() {
         if (miningDir == null) return Vec3d.ZERO;
 
         switch (miningDir) {
@@ -241,6 +247,9 @@ public class ExcavationLogic {
             case WEST:
             case EAST:
                 Vec3d vec = new Vec3d(miningDir.getUnitVector());
+                if(!isForwardFacing){
+                    vec = vec.multiply(-1);
+                }
                 vec.normalize();
                 return vec;
             case DOWN:
@@ -268,20 +277,19 @@ public class ExcavationLogic {
 
         BlockPos minecartPos = minecartEntity.getBlockPos();
 
-        BlockPos frontPos = getMiningPlace(minecartPos);
+        BlockPos miningPos = getMiningPos(minecartPos);
 
-        //not on rail or other issue
-        if (frontPos == null) {
+        if (miningPos == null) {
             resetMining();
         } else {
-            miningStatus = checkFrontStatus(frontPos, minecartPos);
+            miningStatus = checkFrontStatus(miningPos, minecartPos);
 
             //nothing to do
             if (miningStatus == MiningStatus.Rolling) {
-                miningDone(frontPos);
+                miningDone(miningPos);
             } else if (miningStatus == MiningStatus.Mining) {
-                if (miningPos == null) {
-                    beginMining(frontPos.offset(Direction.UP, MiningCountZ - 1));
+                if (this.miningPos == null) {
+                    beginMining(miningPos.offset(Direction.UP, MiningCountZ - 1));
                     miningStackTick = 0;
                 } else {
                     boolean isBlockMined = tickBlockMining();
@@ -290,9 +298,9 @@ public class ExcavationLogic {
                         miningStackTick++;
 
                         if (miningStackTick > MiningCountZ) {
-                            miningDone(frontPos);
+                            miningDone(miningPos);
                         } else { //mining of the stack is done
-                            beginMining(miningPos.down());
+                            beginMining(this.miningPos.down());
                         }
                     }
                 }
@@ -323,68 +331,66 @@ public class ExcavationLogic {
         return false;
     }
 
-    private BlockPos getMiningPlace(BlockPos pos) {
+    private BlockPos getMiningPos(BlockPos pos) {
+        RailShape railShape;
+        RailShape railShapeAtExcavator = getRailShape(pos);
+        RailShape railShapeUnderExcavator = getRailShape(pos.down(1));
+
+        if(railShapeUnderExcavator != null){
+            railShape = railShapeUnderExcavator;
+        }else{
+            railShape = railShapeAtExcavator;
+        }
+
+        if(railShape == null){
+            return null;
+        }
+
+        if(railShape.isAscending()){
+            if(railShape == RailShape.ASCENDING_EAST){
+                miningDir = isForwardFacing? Direction.EAST : Direction.WEST;
+            }else if(railShape == RailShape.ASCENDING_WEST){
+                miningDir = isForwardFacing? Direction.WEST : Direction.EAST;
+            }else if(railShape == RailShape.ASCENDING_SOUTH){
+                miningDir = isForwardFacing? Direction.SOUTH : Direction.NORTH;
+            }else if(railShape == RailShape.ASCENDING_NORTH){
+                miningDir = isForwardFacing? Direction.NORTH : Direction.SOUTH;
+            }
+        }else{
+            if(railShape == RailShape.EAST_WEST){
+                miningDir = isForwardFacing? Direction.EAST : Direction.WEST;
+            }else if(railShape == RailShape.NORTH_SOUTH){
+                miningDir = isForwardFacing? Direction.NORTH : Direction.SOUTH;
+            }if(railShape == RailShape.NORTH_WEST){
+                miningDir = isForwardFacing? Direction.NORTH : Direction.WEST;
+            }else if(railShape == RailShape.NORTH_EAST){
+                miningDir = isForwardFacing? Direction.NORTH : Direction.EAST;
+            }else if(railShape == RailShape.SOUTH_EAST){
+                miningDir = isForwardFacing? Direction.SOUTH : Direction.EAST;
+            }else if(railShape == RailShape.SOUTH_WEST){
+                miningDir = isForwardFacing? Direction.SOUTH : Direction.WEST;
+            }
+        }
+
+        BlockPos resultPos = pos.offset(miningDir);
+
+        if (railShape.isAscending()) {
+            resultPos = resultPos.up();
+        }
+
+        //LOGGER.debug("excavatorFacing:"+ isForwardFacing +", miningDir:"+miningDir+", railShape:"+railShape+", railShapeAtExcavator:"+railShapeAtExcavator + ", railShapeUnderExcavator:"+railShapeUnderExcavator + ", pos:"+pos+", resultPos:"+resultPos);
+
+        return resultPos;
+    }
+
+    private RailShape getRailShape(BlockPos pos){
         if (!isRailTrack(pos)) return null;
 
-        Vec3d motion = minecartEntity.getVelocity();
-
-        Direction dir;
-
-        if (motion.lengthSquared() <= 0.0001d) {
-            dir = miningDir;
-        } else {
-            dir = Direction.getFacing(motion.x, 0, motion.z);
-        }
-
-        if (dir == null) return null;
-
         BlockState bs = world.getBlockState(pos);
+
         AbstractRailBlock railBlock = (AbstractRailBlock) bs.getBlock();
 
-        RailShape railShape = bs.get(railBlock.getShapeProperty());
-
-        boolean isMinecartTurning = false;
-
-        //fix detection on turns
-        if (dir == Direction.NORTH || dir == Direction.SOUTH) {
-            if (railShape == RailShape.NORTH_WEST || railShape == RailShape.SOUTH_WEST) {
-                lastTorchPos = null;
-                dir = Direction.WEST;
-                isMinecartTurning = true;
-            }
-            if (railShape == RailShape.NORTH_EAST || railShape == RailShape.SOUTH_EAST) {
-                lastTorchPos = null;
-                dir = Direction.EAST;
-                isMinecartTurning = true;
-            }
-        } else if (dir == Direction.WEST || dir == Direction.EAST) {
-            if (railShape == RailShape.NORTH_WEST || railShape == RailShape.NORTH_EAST) {
-                lastTorchPos = null;
-                dir = Direction.NORTH;
-                isMinecartTurning = true;
-            }
-            if (railShape == RailShape.SOUTH_WEST || railShape == RailShape.SOUTH_EAST) {
-                lastTorchPos = null;
-                dir = Direction.SOUTH;
-                isMinecartTurning = true;
-            }
-        }
-
-        boolean isMinecartAscending =
-                railShape == RailShape.ASCENDING_EAST && dir == Direction.EAST ||
-                        railShape == RailShape.ASCENDING_WEST && dir == Direction.WEST ||
-                        railShape == RailShape.ASCENDING_NORTH && dir == Direction.NORTH ||
-                        railShape == RailShape.ASCENDING_SOUTH && dir == Direction.SOUTH;
-
-        miningDir = dir;
-
-        BlockPos resultPos = pos.offset(dir);
-
-        if (isMinecartAscending) {
-            return resultPos.up();
-        } else {
-            return resultPos;
-        }
+        return bs.get(railBlock.getShapeProperty());
     }
 
     private boolean isRailTrack(BlockPos targetPos) {
@@ -414,9 +420,10 @@ public class ExcavationLogic {
 
         MiningStatus miningStatus;
 
-        //front bottom
-        if (isAir(frontDown)) return MiningStatus.HazardCliff;
-        if (isAir(behindFrontDown)) return MiningStatus.HazardCliff;
+        if(!isRailTrack(frontPos) && !isRailTrack(frontDown)){
+            if (isAir(frontDown)) return MiningStatus.HazardCliff;
+            if (isAir(behindFrontDown)) return MiningStatus.HazardCliff;
+        }
 
         if ((miningStatus = checkStatusAt(frontDown)) != MiningStatus.Mining) return miningStatus;
         if ((miningStatus = checkStatusAt(behindFrontDown)) != MiningStatus.Mining) return miningStatus;

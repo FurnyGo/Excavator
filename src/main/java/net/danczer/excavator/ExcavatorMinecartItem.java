@@ -6,6 +6,7 @@ import net.minecraft.block.DispenserBlock;
 import net.minecraft.block.dispenser.DispenserBehavior;
 import net.minecraft.block.dispenser.ItemDispenserBehavior;
 import net.minecraft.block.enums.RailShape;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.vehicle.AbstractMinecartEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -15,6 +16,7 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.BlockPointer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.minecraft.world.event.GameEvent;
 
@@ -57,7 +59,7 @@ public class ExcavatorMinecartItem extends Item {
                 }
             }
 
-            AbstractMinecartEntity abstractMinecartEntity = create(world, d, e + g, f);
+            AbstractMinecartEntity abstractMinecartEntity = ExcavatorMinecartEntity.create(world, new Vec3d(d, e + g, f), railShape, direction);
             if (stack.hasCustomName()) {
                 abstractMinecartEntity.setCustomName(stack.getName());
             }
@@ -91,7 +93,7 @@ public class ExcavatorMinecartItem extends Item {
                     d = 0.5;
                 }
 
-                AbstractMinecartEntity abstractMinecartEntity = create(world, (double)blockPos.getX() + 0.5, (double)blockPos.getY() + 0.0625 + d, (double)blockPos.getZ() + 0.5);
+                AbstractMinecartEntity abstractMinecartEntity = ExcavatorMinecartEntity.create(world, new Vec3d((double)blockPos.getX() + 0.5, (double)blockPos.getY() + 0.0625 + d, (double)blockPos.getZ() + 0.5), railShape, context.getPlayerFacing());
                 if (itemStack.hasCustomName()) {
                     abstractMinecartEntity.setCustomName(itemStack.getName());
                 }
@@ -103,9 +105,5 @@ public class ExcavatorMinecartItem extends Item {
             itemStack.decrement(1);
             return ActionResult.success(world.isClient);
         }
-    }
-
-    private static AbstractMinecartEntity create(World worldIn, double x, double y, double z) {
-       return  ExcavatorMinecartEntity.create(worldIn, x, y, z);
     }
 }

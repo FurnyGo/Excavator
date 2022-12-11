@@ -5,6 +5,7 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.Hopper;
 import net.minecraft.block.entity.HopperBlockEntity;
+import net.minecraft.block.enums.RailShape;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.data.DataTracker;
@@ -17,18 +18,21 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.network.Packet;
+import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.predicate.entity.EntityPredicates;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
 import org.slf4j.Logger;
 
 import java.util.List;
 
 public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Hopper {
+
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final TrackedData<Integer> MINING_STATUS;
 
@@ -45,14 +49,64 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
 
     public ExcavatorMinecartEntity(EntityType<? extends StorageMinecartEntity> entityType, World world) {
         super(entityType, world);
+        LOGGER.debug("ExcavatorMinecartEntity1:"+isForwardFacing());
     }
 
-    private ExcavatorMinecartEntity(World world, double x, double y, double z) {
-        super(ExcavatorMod.EXCAVATOR_ENTITY, x, y, z, world);
+    private ExcavatorMinecartEntity(World world, Vec3d pos, boolean isForwardFacing) {
+        super(ExcavatorMod.EXCAVATOR_ENTITY, pos.x, pos.y, pos.z, world);
+
+        setForwardFacing(isForwardFacing);
+        LOGGER.debug("ExcavatorMinecartEntity2:"+isForwardFacing());
     }
 
-    public static ExcavatorMinecartEntity create(World world, double x, double y, double z){
-        return new ExcavatorMinecartEntity(world, x, y, z);
+    public static ExcavatorMinecartEntity create(World world, Vec3d pos, RailShape railShape, Direction playerFacing){
+        var vector = playerFacing.getVector();
+        var player2DFacing = Direction.getFacing(vector.getX(), 0, vector.getZ());
+        boolean isForwardFacing = false;
+
+        if(railShape.isAscending()){
+            if(railShape == RailShape.ASCENDING_EAST){
+                isForwardFacing = player2DFacing == Direction.EAST;
+            }else if(railShape == RailShape.ASCENDING_WEST){
+                isForwardFacing = player2DFacing == Direction.WEST;
+            }else if(railShape == RailShape.ASCENDING_SOUTH){
+                isForwardFacing = player2DFacing == Direction.SOUTH;
+            }else if(railShape == RailShape.ASCENDING_NORTH){
+                isForwardFacing = player2DFacing == Direction.NORTH;
+            }
+        }else{
+            if(railShape == RailShape.EAST_WEST){
+                isForwardFacing = player2DFacing == Direction.EAST;
+            }else if(railShape == RailShape.NORTH_SOUTH){
+                isForwardFacing = player2DFacing == Direction.NORTH;
+            }if(railShape == RailShape.NORTH_WEST){
+                isForwardFacing = player2DFacing == Direction.NORTH;
+            }else if(railShape == RailShape.NORTH_EAST){
+                isForwardFacing = player2DFacing == Direction.NORTH;
+            }else if(railShape == RailShape.SOUTH_EAST){
+                isForwardFacing = player2DFacing == Direction.SOUTH;
+            }else if(railShape == RailShape.SOUTH_WEST){
+                isForwardFacing = player2DFacing == Direction.SOUTH;
+            }
+        }
+
+        LOGGER.debug("isForwardFacing:"+isForwardFacing+", playerFacing:"+playerFacing+", player2DFacing:"+player2DFacing+", railShape:"+railShape);
+
+        return new ExcavatorMinecartEntity(world, pos, isForwardFacing);
+    }
+
+    @Override
+    public void onSpawnPacket(EntitySpawnS2CPacket packet) {
+        super.onSpawnPacket(packet);
+
+        if(packet instanceof ExcavatorEntitySpawnS2CPacket excavatorPacket){
+            setForwardFacing(excavatorPacket.isForwardFacing());
+        }
+    }
+
+    @Override
+    public Packet<?> createSpawnPacket() {
+        return new ExcavatorEntitySpawnS2CPacket(this);
     }
 
     protected void initDataTracker() {
@@ -122,28 +176,17 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
 
     public void tick() {
         excavatorTick();
+        super.tick();
         hopperTick();
     }
 
     private void excavatorTick() {
-        ExcavationLogic.MiningStatus prevStatus = excavationLogic.miningStatus;
-
         if (!this.world.isClient && this.isAlive() && this.isEnabled()) {
             excavationLogic.updateExcavatorToolchain();
 
             excavationLogic.tick();
 
             setMiningStatus(excavationLogic.miningStatus);
-        }
-
-        if(excavationLogic.miningStatus == ExcavationLogic.MiningStatus.Rolling){
-            if(prevStatus == ExcavationLogic.MiningStatus.Mining){
-                LOGGER.debug("Minecart Pushed");
-                setVelocity(excavationLogic.getDirectoryVector().multiply(MinecartPushForce));
-            }
-            super.tick();
-        }else{
-            setVelocity(Vec3d.ZERO);
         }
 
         if (this.random.nextInt(4) == 0) {
@@ -153,7 +196,6 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
 
     private void showMiningStatus() {
         ExcavationLogic.MiningStatus miningStatus = getMiningStatus();
-        LOGGER.debug("Hazard: " + miningStatus);
 
         ParticleEffect particleType = null;
 
@@ -193,11 +235,19 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     }
 
     private ExcavationLogic.MiningStatus getMiningStatus() {
-        return ExcavationLogic.MiningStatus.Find(this.getDataTracker().get(MINING_STATUS));
+        return ExcavationLogic.MiningStatus.Find(getDataTracker().get(MINING_STATUS));
     }
 
     private void setMiningStatus(ExcavationLogic.MiningStatus miningStatus) {
-        this.dataTracker.set(MINING_STATUS, miningStatus.Value);
+        getDataTracker().set(MINING_STATUS, miningStatus.Value);
+    }
+
+    public boolean isForwardFacing(){
+        return excavationLogic.isForwardFacing;
+    }
+
+    private void setForwardFacing(boolean isForwardFacing){
+        excavationLogic.isForwardFacing = isForwardFacing;
     }
 
     private void hopperTick() {
