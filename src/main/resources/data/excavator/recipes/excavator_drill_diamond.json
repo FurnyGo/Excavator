@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " H ",
+    "FFH",
+    " H "
+  ],
+  "key": {
+    "F": {
+      "item": "minecraft:iron"
+    },
+    "H": {
+      "item": "minecraft:diamond"
+    }
+  },
+  "result": {
+    "item": "excavator:excavator_drill_diamond"
+  }
+}

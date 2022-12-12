@@ -18,7 +18,6 @@ import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class ExcavationLogic {
@@ -58,38 +57,7 @@ public class ExcavationLogic {
         }
     }
 
-    public static final List<BlockItem> USABLE_RAIL_ITEMS = new ArrayList<>();
-    public static final List<BlockItem> USABLE_TORCH_ITEMS = new ArrayList<>();
-    public static final List<Block> TORCH_WALL_BLOCKS = new ArrayList<>();
-    public static final List<MiningToolItem> USABLE_PICKAXE_ITEMS = new ArrayList<>();
-    public static final List<MiningToolItem> USABLE_SHOVEL_ITEMS = new ArrayList<>();
 
-    static {
-        USABLE_TORCH_ITEMS.add((BlockItem) Items.TORCH);
-        USABLE_TORCH_ITEMS.add((BlockItem)Items.REDSTONE_TORCH);
-        USABLE_TORCH_ITEMS.add((BlockItem)Items.SOUL_TORCH);
-
-        TORCH_WALL_BLOCKS.add(Blocks.WALL_TORCH);
-        TORCH_WALL_BLOCKS.add(Blocks.REDSTONE_WALL_TORCH);
-        TORCH_WALL_BLOCKS.add(Blocks.SOUL_WALL_TORCH);
-
-        USABLE_RAIL_ITEMS.add((BlockItem)Items.RAIL);
-        USABLE_RAIL_ITEMS.add((BlockItem)Items.POWERED_RAIL);
-
-        USABLE_PICKAXE_ITEMS.add((MiningToolItem)Items.NETHERITE_PICKAXE);
-        USABLE_PICKAXE_ITEMS.add((MiningToolItem)Items.DIAMOND_PICKAXE);
-        USABLE_PICKAXE_ITEMS.add((MiningToolItem)Items.GOLDEN_PICKAXE);
-        USABLE_PICKAXE_ITEMS.add((MiningToolItem)Items.IRON_PICKAXE);
-        USABLE_PICKAXE_ITEMS.add((MiningToolItem)Items.STONE_PICKAXE);
-        USABLE_PICKAXE_ITEMS.add((MiningToolItem)Items.WOODEN_PICKAXE);
-
-        USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.NETHERITE_SHOVEL);
-        USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.DIAMOND_SHOVEL);
-        USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.IRON_SHOVEL);
-        USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.GOLDEN_SHOVEL);
-        USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.STONE_SHOVEL);
-        USABLE_SHOVEL_ITEMS.add((MiningToolItem)Items.WOODEN_SHOVEL);
-    }
 
     private final static int MiningCountZ = 3;
     private final static int TorchPlacementDistance = 6;
@@ -121,20 +89,16 @@ public class ExcavationLogic {
         this.excavatorInventory = inventory;
         this.world = minecartEntity.world;
 
-        if(isItemListContainsNull(USABLE_TORCH_ITEMS)){
+        if(isItemListContainsNull(ExcavatorMod.EXCAVATOR_USABLE_TORCH_ITEMS)){
             throw new NullPointerException("Invalid Torch in the usable list for excavator!");
         }
 
-        if(isItemListContainsNull(USABLE_RAIL_ITEMS)){
+        if(isItemListContainsNull(ExcavatorMod.EXCAVATOR_USABLE_RAIL_ITEMS)){
             throw new NullPointerException("Invalid Rail in the usable list for excavator!");
         }
 
-        if(isItemListContainsNull(USABLE_PICKAXE_ITEMS)){
+        if(isItemListContainsNull(ExcavatorMod.EXCAVATOR_USABLE_DRILL_ITEMS)){
             throw new NullPointerException("Invalid Pickaxe in the usable list for excavator!");
-        }
-
-        if(isItemListContainsNull(USABLE_SHOVEL_ITEMS)){
-            throw new NullPointerException("Invalid Shovel in the usable list for excavator!");
         }
     }
 
@@ -146,13 +110,11 @@ public class ExcavationLogic {
         return false;
     }
 
-
     public void updateExcavatorToolchain() {
 
         int latestTorchItemIdx = Integer.MAX_VALUE;
         int latestRailItemIdx = Integer.MAX_VALUE;
-        int latestPickaxeItemIdx = Integer.MAX_VALUE;
-        int latestShovelItemIdx = Integer.MAX_VALUE;
+        int latestDrillItemIdx = Integer.MAX_VALUE;
 
         torchType = null;
         railType = null;
@@ -168,26 +130,22 @@ public class ExcavationLogic {
             if (item instanceof BlockItem) {
                 int idx;
 
-                if((idx = USABLE_TORCH_ITEMS.indexOf(item)) >=0 && latestTorchItemIdx > idx){
+                if((idx = ExcavatorMod.EXCAVATOR_USABLE_TORCH_ITEMS.indexOf(item)) >=0 && latestTorchItemIdx > idx){
                     latestTorchItemIdx = idx;
                     torchType = (BlockItem) item;
                 }
 
-                if((idx = USABLE_RAIL_ITEMS.indexOf(item)) >=0 && latestRailItemIdx > idx){
+                if((idx = ExcavatorMod.EXCAVATOR_USABLE_RAIL_ITEMS.indexOf(item)) >=0 && latestRailItemIdx > idx){
                     latestRailItemIdx = idx;
                     railType = (BlockItem) item;
                 }
-            }else if (item instanceof MiningToolItem) {
+            }else if (item instanceof ExcavatorDrill drill) {
                 int idx;
 
-                if((idx = USABLE_PICKAXE_ITEMS.indexOf(item)) >=0 && latestPickaxeItemIdx > idx){
-                    latestPickaxeItemIdx = idx;
-                    pickaxeType = (MiningToolItem) item;
-                }
-
-                if((idx = USABLE_SHOVEL_ITEMS.indexOf(item)) >=0 && latestShovelItemIdx > idx){
-                    latestShovelItemIdx = idx;
-                    shovelType = (MiningToolItem) item;
+                if((idx = ExcavatorMod.EXCAVATOR_USABLE_DRILL_ITEMS.indexOf(drill)) >=0 && latestDrillItemIdx > idx) {
+                    latestDrillItemIdx = idx;
+                    pickaxeType = drill.getPickAxe();
+                    shovelType = drill.getShovel();
                 }
             }
         }
@@ -221,10 +179,7 @@ public class ExcavationLogic {
 
         miningBlockTick = compound.getInt("miningTimerTick");
         miningStackTick = compound.getInt("miningCountTick");
-
         isForwardFacing = compound.getBoolean("excavatorFacing");
-
-        LOGGER.debug("readNbt:"+isForwardFacing);
     }
 
     public void writeNbt(NbtCompound compound) {
@@ -234,8 +189,6 @@ public class ExcavationLogic {
         compound.putInt("miningDir", miningDir == null ? 0 : miningDir.getId());
         compound.putInt("miningTimerTick", miningBlockTick);
         compound.putInt("miningCountTick", miningStackTick);
-
-        LOGGER.debug("writeNbt:"+isForwardFacing);
     }
 
     public Vec3d getFacingDir() {
@@ -323,9 +276,9 @@ public class ExcavationLogic {
 
     private boolean isToolchainItem(Item item) {
         if (item instanceof BlockItem) {
-            return USABLE_TORCH_ITEMS.contains(item) || USABLE_RAIL_ITEMS.contains(item);
-        }else if (item instanceof MiningToolItem) {
-            return USABLE_PICKAXE_ITEMS.contains(item) || USABLE_SHOVEL_ITEMS.contains(item);
+            return ExcavatorMod.EXCAVATOR_USABLE_TORCH_ITEMS.contains(item) || ExcavatorMod.EXCAVATOR_USABLE_RAIL_ITEMS.contains(item);
+        }else if (item instanceof ExcavatorDrill) {
+            return ExcavatorMod.EXCAVATOR_USABLE_DRILL_ITEMS.contains(item);
         }
 
         return false;
@@ -616,7 +569,7 @@ public class ExcavationLogic {
         BlockState targetBlockState = world.getBlockState(blockPos);
 
         //find existing torch
-        for (BlockItem torch : USABLE_TORCH_ITEMS) {
+        for (BlockItem torch : ExcavatorMod.EXCAVATOR_USABLE_TORCH_ITEMS) {
             Block wallBlock = getTorchWallBlock(torch.getBlock());
             if(targetBlockState.isOf(wallBlock)){
                 lastTorchPos = blockPos;
@@ -650,7 +603,7 @@ public class ExcavationLogic {
     }
 
     private Block getTorchWallBlock(Block block){
-        for (Block wallBlock: TORCH_WALL_BLOCKS) {
+        for (Block wallBlock: ExcavatorMod.EXCAVATOR_TORCH_WALL_BLOCKS) {
             if(block.getClass().isAssignableFrom(wallBlock.getClass())){
                 return wallBlock;
             }
