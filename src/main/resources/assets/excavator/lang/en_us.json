@@ -1,4 +1,8 @@
 {
+    "entity.excavator.excavator_minecart": "Excavator",
     "item.excavator.excavator_minecart": "Minecart with Excavator",
-    "entity.excavator.excavator_minecart": "Excavator"
+    "item.excavator.excavator_drill_iron": "Excavator Iron Drill",
+    "item.excavator.excavator_drill_gold": "Excavator Gold Drill",
+    "item.excavator.excavator_drill_diamond": "Excavator Diamond Drill",
+    "item.excavator.excavator_drill_netherite": "Excavator Netherite Drill"
 }

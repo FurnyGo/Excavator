@@ -20,32 +20,35 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.Packet;
 import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
-import net.minecraft.particle.ParticleEffect;
-import net.minecraft.particle.ParticleTypes;
 import net.minecraft.predicate.entity.EntityPredicates;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.*;
 import net.minecraft.world.World;
 import org.slf4j.Logger;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Hopper {
 
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final TrackedData<Integer> MINING_STATUS;
+    private static final List<TrackedData<Integer>> DRILL_TYPES;
 
     static {
         MINING_STATUS = DataTracker.registerData(ExcavatorMinecartEntity.class, TrackedDataHandlerRegistry.INTEGER);
-    }
-    private static final float CollectBlockWithHardness = 3f;
-    private static final float MinecartPushForce = 0.005f;
 
-    private final ExcavationLogic excavationLogic = new ExcavationLogic(this, this);
+        DRILL_TYPES = new ArrayList<>();
+        for (int i = 0; i < ExcavatorLogic.DRILL_COUNT; i++) {
+            DRILL_TYPES.add(DataTracker.registerData(ExcavatorMinecartEntity.class, TrackedDataHandlerRegistry.INTEGER));
+        }
+    }
+
+    private static final float CollectBlockWithHardness = 3f;
+    private final ExcavatorLogic excavatorLogic = new ExcavatorLogic(this, this);
     private boolean enabled = true;
     private int transferTicker = -1;
     private final BlockPos lastPosition = BlockPos.ORIGIN;
+    private final Vec3f[] drillColors = new Vec3f[ExcavatorLogic.DRILL_COUNT];
 
     public ExcavatorMinecartEntity(EntityType<? extends StorageMinecartEntity> entityType, World world) {
         super(entityType, world);
@@ -107,11 +110,6 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     @Override
     public Packet<?> createSpawnPacket() {
         return new ExcavatorEntitySpawnS2CPacket(this);
-    }
-
-    protected void initDataTracker() {
-        super.initDataTracker();
-        this.dataTracker.startTracking(MINING_STATUS, 0);
     }
 
     public AbstractMinecartEntity.Type getMinecartType() {
@@ -182,72 +180,81 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
 
     private void excavatorTick() {
         if (!this.world.isClient && this.isAlive() && this.isEnabled()) {
-            excavationLogic.updateExcavatorToolchain();
+            excavatorLogic.updateExcavatorToolchain();
 
-            excavationLogic.tick();
+            excavatorLogic.tick();
 
-            setMiningStatus(excavationLogic.miningStatus);
-        }
-
-        if (this.random.nextInt(4) == 0) {
-            showMiningStatus();
+            setMiningStatus();
+            setDrillTypes();
         }
     }
 
-    private void showMiningStatus() {
-        ExcavationLogic.MiningStatus miningStatus = getMiningStatus();
+    protected void initDataTracker() {
+        super.initDataTracker();
+        dataTracker.startTracking(MINING_STATUS, 0);
 
-        ParticleEffect particleType = null;
-
-        switch (miningStatus) {
-            case Mining:
-                particleType = ParticleTypes.LARGE_SMOKE;
-                break;
-            case HazardCliff:
-                particleType = ParticleTypes.ENTITY_EFFECT;
-                break;
-            case HazardLava:
-                particleType = ParticleTypes.FALLING_LAVA;
-                break;
-            case HazardWater:
-                particleType = ParticleTypes.FALLING_WATER;
-                break;
-            case HazardUnknownFluid:
-                particleType = ParticleTypes.BUBBLE;
-                break;
-            case MissingToolchain:
-                particleType = ParticleTypes.WITCH;
-                break;
-            case InventoryIsFull:
-                particleType = ParticleTypes.FALLING_HONEY;
-                break;
-            case EmergencyStop:
-                particleType = ParticleTypes.COMPOSTER;
-                break;
-            case Rolling:
-            default:
-                break;
-        }
-
-        if (particleType != null) {
-            this.world.addParticle(particleType, this.getHopperX(), this.getHopperY() + 0.8D, this.getHopperZ(), 0.0D, 0.0D, 0.0D);
+        for (int i = 0; i < ExcavatorLogic.DRILL_COUNT; i++) {
+            dataTracker.startTracking(DRILL_TYPES.get(i), -1);
         }
     }
 
-    private ExcavationLogic.MiningStatus getMiningStatus() {
-        return ExcavationLogic.MiningStatus.Find(getDataTracker().get(MINING_STATUS));
+    public ExcavatorLogic.MiningStatus getMiningStatus() {
+        return ExcavatorLogic.MiningStatus.Find(dataTracker.get(MINING_STATUS));
     }
 
-    private void setMiningStatus(ExcavationLogic.MiningStatus miningStatus) {
-        getDataTracker().set(MINING_STATUS, miningStatus.Value);
+    private void setMiningStatus() {
+        dataTracker.set(MINING_STATUS, excavatorLogic.miningStatus.Value);
+    }
+
+    private ExcavatorDrill[] getDrillTypes() {
+        var drills = new ExcavatorDrill[ExcavatorLogic.DRILL_COUNT];
+
+        for (int i = 0; i < ExcavatorLogic.DRILL_COUNT; i++) {
+            var drillIndex = dataTracker.get(DRILL_TYPES.get(i));
+
+            if(drillIndex>=0 && drillIndex<ExcavatorMod.EXCAVATOR_USABLE_DRILL_ITEMS.size()){
+                drills[i] = ExcavatorMod.EXCAVATOR_USABLE_DRILL_ITEMS.get(drillIndex);
+            }else{
+                drills[i] = null;
+            }
+        }
+
+        return drills;
+    }
+
+    private void setDrillTypes() {
+        var idx = -1;
+
+        if(excavatorLogic.drillType != null){
+            idx = ExcavatorMod.EXCAVATOR_USABLE_DRILL_ITEMS.indexOf(excavatorLogic.drillType);
+        }
+
+        for (int i = 0; i < ExcavatorLogic.DRILL_COUNT; i++) {
+            getDataTracker().set(DRILL_TYPES.get(i), idx);
+        }
     }
 
     public boolean isForwardFacing(){
-        return excavationLogic.isForwardFacing;
+        return excavatorLogic.isForwardFacing;
     }
 
     private void setForwardFacing(boolean isForwardFacing){
-        excavationLogic.isForwardFacing = isForwardFacing;
+        excavatorLogic.isForwardFacing = isForwardFacing;
+    }
+
+    public Vec3f[] getDrillColors(){
+        var drills = getDrillTypes();
+
+        for (int i = 0; i < ExcavatorLogic.DRILL_COUNT; i++) {
+            var drill = drills[i];
+            if(drill == null){
+                drillColors[i] = new Vec3f(1,1,1);
+            }else{
+                drillColors[i] = drill.getDrillColor();
+            }
+        }
+
+        return drillColors;
     }
 
     private void hopperTick() {
@@ -307,7 +314,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
 
     @Override
     public NbtCompound writeNbt(NbtCompound compound) {
-        excavationLogic.writeNbt(compound);
+        excavatorLogic.writeNbt(compound);
 
         compound.putInt("TransferCooldown", this.transferTicker);
         compound.putBoolean("Enabled", this.enabled);
@@ -319,7 +326,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     public void readNbt(NbtCompound compound) {
         super.readNbt(compound);
 
-        excavationLogic.readNbt(compound);
+        excavatorLogic.readNbt(compound);
 
         this.transferTicker = compound.getInt("TransferCooldown");
         this.enabled = !compound.contains("Enabled") || compound.getBoolean("Enabled");

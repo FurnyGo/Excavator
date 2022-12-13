@@ -10,9 +10,14 @@ import net.minecraft.block.Material;
 import net.minecraft.entity.EntityDimensions;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
+import net.minecraft.entity.boss.BossBar;
 import net.minecraft.item.*;
 import net.minecraft.screen.ScreenHandlerType;
+import net.minecraft.util.DyeColor;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.ColorHelper;
+import net.minecraft.util.math.Vec3f;
+import net.minecraft.util.math.Vec3i;
 import net.minecraft.util.registry.Registry;
 
 import java.util.ArrayList;
@@ -41,10 +46,14 @@ public class ExcavatorMod implements ModInitializer {
                         .build()
     );
 
-    public static final Item EXCAVATOR_DRILL_STEEL = Registry.register(Registry.ITEM, new Identifier(MOD_ID, "excavator_drill_iron"), new ExcavatorDrill(new FabricItemSettings(), "excavator_drill_iron", (MiningToolItem) Items.IRON_PICKAXE, (MiningToolItem) Items.IRON_SHOVEL));
-    public static final Item EXCAVATOR_DRILL_GOLD = Registry.register(Registry.ITEM, new Identifier(MOD_ID, "excavator_drill_gold"), new ExcavatorDrill(new FabricItemSettings(),"excavator_drill_stone", (MiningToolItem) Items.GOLDEN_PICKAXE, (MiningToolItem) Items.GOLDEN_SHOVEL));
-    public static final Item EXCAVATOR_DRILL_DIAMOND = Registry.register(Registry.ITEM, new Identifier(MOD_ID, "excavator_drill_diamond"), new ExcavatorDrill(new FabricItemSettings(), "excavator_drill_diamond", (MiningToolItem) Items.DIAMOND_PICKAXE, (MiningToolItem) Items.DIAMOND_SHOVEL));
-    public static final Item EXCAVATOR_DRILL_NETHERITE = Registry.register(Registry.ITEM, new Identifier(MOD_ID, "excavator_drill_netherite"), new ExcavatorDrill(new FabricItemSettings(), "excavator_drill_netherite", (MiningToolItem) Items.NETHERITE_PICKAXE, (MiningToolItem) Items.NETHERITE_SHOVEL));
+    public static final Item EXCAVATOR_DRILL_STEEL = Registry.register(Registry.ITEM, new Identifier(MOD_ID, "excavator_drill_iron"),
+            new ExcavatorDrill(new FabricItemSettings().group(ItemGroup.TRANSPORTATION), getColorVec3fFromIntRGB(81,81,81), (MiningToolItem) Items.IRON_PICKAXE, (MiningToolItem) Items.IRON_SHOVEL));
+    public static final Item EXCAVATOR_DRILL_GOLD = Registry.register(Registry.ITEM, new Identifier(MOD_ID, "excavator_drill_gold"),
+            new ExcavatorDrill(new FabricItemSettings().group(ItemGroup.TRANSPORTATION), getColorVec3fFromIntRGB(77,78,22), (MiningToolItem) Items.GOLDEN_PICKAXE, (MiningToolItem) Items.GOLDEN_SHOVEL));
+    public static final Item EXCAVATOR_DRILL_DIAMOND = Registry.register(Registry.ITEM, new Identifier(MOD_ID, "excavator_drill_diamond"),
+            new ExcavatorDrill(new FabricItemSettings().group(ItemGroup.TRANSPORTATION), getColorVec3fFromIntRGB(0,74,78), (MiningToolItem) Items.DIAMOND_PICKAXE, (MiningToolItem) Items.DIAMOND_SHOVEL));
+    public static final Item EXCAVATOR_DRILL_NETHERITE = Registry.register(Registry.ITEM, new Identifier(MOD_ID, "excavator_drill_netherite"),
+            new ExcavatorDrill(new FabricItemSettings().group(ItemGroup.TRANSPORTATION), getColorVec3fFromIntRGB(42,12,0), (MiningToolItem) Items.NETHERITE_PICKAXE, (MiningToolItem) Items.NETHERITE_SHOVEL));
 
     public static final List<BlockItem> EXCAVATOR_USABLE_RAIL_ITEMS = new ArrayList<>();
     public static final List<BlockItem> EXCAVATOR_USABLE_TORCH_ITEMS = new ArrayList<>();
@@ -70,5 +79,9 @@ public class ExcavatorMod implements ModInitializer {
     }
     @Override
     public void onInitialize() {
+    }
+
+    private static Vec3f getColorVec3fFromIntRGB(int r, int g, int b){
+        return new Vec3f(r/255f, g/255f, b/255f);
     }
 }

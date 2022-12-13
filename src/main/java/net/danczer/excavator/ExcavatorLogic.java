@@ -20,13 +20,14 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 
-public class ExcavationLogic {
+public class ExcavatorLogic {
 
+    public static final int DRILL_COUNT = 3;
     private static final int TICK_PER_SECOND = 20;
     private static final Logger LOGGER = LogManager.getLogger();
 
     public enum MiningStatus {
-        Rolling(0),
+        Idle(0),
         Mining(1),
         HazardCliff(2),
         HazardLava(3),
@@ -52,7 +53,7 @@ public class ExcavationLogic {
                 case 6 -> MiningStatus.MissingToolchain;
                 case 7 -> MiningStatus.InventoryIsFull;
                 case 8 -> MiningStatus.EmergencyStop;
-                default -> MiningStatus.Rolling;
+                default -> MiningStatus.Idle;
             };
         }
     }
@@ -77,14 +78,12 @@ public class ExcavationLogic {
     private int previousMiningBlockTick = 0;
 
     public boolean isForwardFacing;
-    public BlockItem railType;
-    public BlockItem torchType;
-    public MiningToolItem pickaxeType;
-    public MiningToolItem shovelType;
+    private BlockItem railType;
+    private BlockItem torchType;
+    public ExcavatorDrill drillType;
+    public MiningStatus miningStatus = MiningStatus.Idle;
 
-    public MiningStatus miningStatus = MiningStatus.Rolling;
-
-    public ExcavationLogic(AbstractMinecartEntity minecartEntity, Inventory inventory) {
+    public ExcavatorLogic(AbstractMinecartEntity minecartEntity, Inventory inventory) {
         this.minecartEntity = minecartEntity;
         this.excavatorInventory = inventory;
         this.world = minecartEntity.world;
@@ -118,8 +117,7 @@ public class ExcavationLogic {
 
         torchType = null;
         railType = null;
-        pickaxeType = null;
-        shovelType = null;
+        drillType = null;
 
         for (int i = 0; i < excavatorInventory.size(); i++) {
             ItemStack itemStack = excavatorInventory.getStack(i);
@@ -144,8 +142,7 @@ public class ExcavationLogic {
 
                 if((idx = ExcavatorMod.EXCAVATOR_USABLE_DRILL_ITEMS.indexOf(drill)) >=0 && latestDrillItemIdx > idx) {
                     latestDrillItemIdx = idx;
-                    pickaxeType = drill.getPickAxe();
-                    shovelType = drill.getShovel();
+                    drillType = drill;
                 }
             }
         }
@@ -213,7 +210,7 @@ public class ExcavationLogic {
     }
 
     public boolean isToolchainSet(){
-        return railType != null && pickaxeType != null && shovelType != null;
+        return railType != null && drillType != null;
     }
 
     public void tick() {
@@ -238,7 +235,7 @@ public class ExcavationLogic {
             miningStatus = checkFrontStatus(miningPos, minecartPos);
 
             //nothing to do
-            if (miningStatus == MiningStatus.Rolling) {
+            if (miningStatus == MiningStatus.Idle) {
                 miningDone(miningPos);
             } else if (miningStatus == MiningStatus.Mining) {
                 if (this.miningPos == null) {
@@ -399,7 +396,7 @@ public class ExcavationLogic {
             return miningStatus;
 
         if (isFrontHarvested(frontPos)) {
-            return MiningStatus.Rolling;
+            return MiningStatus.Idle;
         } else {
             return MiningStatus.Mining;
         }
@@ -469,7 +466,7 @@ public class ExcavationLogic {
         if (miningPos != null) {
             world.setBlockBreakingInfo(0, miningPos, -1);
         }
-        miningStatus = MiningStatus.Rolling;
+        miningStatus = MiningStatus.Idle;
         miningPos = null;
         miningBlockTick = 0;
         miningStackTick = 0;
@@ -485,6 +482,10 @@ public class ExcavationLogic {
         boolean mineAllowed = blockHardness >= 0f && blockHardness < MaxMiningHardness;
 
         boolean byHand = !blockState.isToolRequired();
+
+        MiningToolItem pickaxeType = drillType.getPickAxe();
+        MiningToolItem shovelType = drillType.getShovel();
+
         boolean isPickAxe = pickaxeType.isSuitableFor(blockState);
         boolean isShovel = shovelType.isSuitableFor(blockState);
 
