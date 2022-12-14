@@ -64,6 +64,7 @@ public class ExcavatorMinecartEntityRenderer extends MinecartEntityRenderer<Exca
             shaftX += 2.5F;
         }
 
+        var drillSpacing = 16F;
         var drillY = 8F;
         for (int i = 0; i < ExcavatorLogic.DRILL_COUNT; i++) {
             modelPartData.addChild(DRILL+i, ModelPartBuilder.create()
@@ -72,7 +73,7 @@ public class ExcavatorMinecartEntityRenderer extends MinecartEntityRenderer<Exca
                             .cuboid("blade2",-16F, 2F-4F,  -2F, 2, 4, 4, Dilation.NONE,106, 4)
                             .cuboid("blade3",-18F, 3F-4F,  -1F, 2, 2, 2, Dilation.NONE,106, 0),
                     ModelTransform.of(0, drillY, 0, 0, 0, 0));
-            drillY += 16F;
+            drillY += drillSpacing;
         }
 
         return TexturedModelData.of(modelData, 128, 128);
@@ -116,13 +117,15 @@ public class ExcavatorMinecartEntityRenderer extends MinecartEntityRenderer<Exca
             var drillRotation = (float)Math.toRadians((worldTimeTick * DRILL_ROTATION_PERCENT_PER_TICK + i * DRILL_ROTATION_SHIFT)*360F);
             var drillColor = drillColors[i];
 
-            var drill = root.getChild(DRILL+i);
-            drill.setAngles(drillRotation,0,0);
-            drill.render(matrixStack, vertexConsumer, light, OverlayTexture.DEFAULT_UV,
-                    drillColor.getX(),
-                    drillColor.getY(),
-                    drillColor.getZ(),
-                    1);
+            if(drillColor != null){
+                var drill = root.getChild(DRILL+i);
+                drill.setAngles(drillRotation,0,0);
+                drill.render(matrixStack, vertexConsumer, light, OverlayTexture.DEFAULT_UV,
+                        drillColor.getX(),
+                        drillColor.getY(),
+                        drillColor.getZ(),
+                        1);
+            }
 
             var shaft = root.getChild(SHAFT+i);
             matrixStack.push();

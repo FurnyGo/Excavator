@@ -223,13 +223,11 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
     }
 
     private void setDrillTypes() {
-        var idx = -1;
-
-        if(excavatorLogic.drillType != null){
-            idx = ExcavatorMod.EXCAVATOR_USABLE_DRILL_ITEMS.indexOf(excavatorLogic.drillType);
-        }
-
         for (int i = 0; i < ExcavatorLogic.DRILL_COUNT; i++) {
+            var idx = -1;
+            if(excavatorLogic.drillTypes[i] != null){
+                idx = ExcavatorMod.EXCAVATOR_USABLE_DRILL_ITEMS.indexOf(excavatorLogic.drillTypes[i]);
+            }
             getDataTracker().set(DRILL_TYPES.get(i), idx);
         }
     }
@@ -248,7 +246,7 @@ public class ExcavatorMinecartEntity extends StorageMinecartEntity implements Ho
         for (int i = 0; i < ExcavatorLogic.DRILL_COUNT; i++) {
             var drill = drills[i];
             if(drill == null){
-                drillColors[i] = new Vec3f(1,1,1);
+                drillColors[i] = null;
             }else{
                 drillColors[i] = drill.getDrillColor();
             }

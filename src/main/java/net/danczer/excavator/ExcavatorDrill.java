@@ -10,7 +10,7 @@ public class ExcavatorDrill extends Item {
     private final MiningToolItem shovel;
 
     public ExcavatorDrill(Settings settings, Vec3f drillColor, MiningToolItem pickAxe, MiningToolItem shovel) {
-        super(settings);
+        super(settings.maxDamageIfAbsent(pickAxe.getMaxDamage()*2));
         this.drillColor = drillColor;
         this.pickAxe = pickAxe;
         this.shovel = shovel;

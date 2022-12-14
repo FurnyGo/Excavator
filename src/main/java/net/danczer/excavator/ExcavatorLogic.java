@@ -80,7 +80,7 @@ public class ExcavatorLogic {
     public boolean isForwardFacing;
     private BlockItem railType;
     private BlockItem torchType;
-    public ExcavatorDrill drillType;
+    public final ExcavatorDrill[] drillTypes = new ExcavatorDrill[DRILL_COUNT];
     public MiningStatus miningStatus = MiningStatus.Idle;
 
     public ExcavatorLogic(AbstractMinecartEntity minecartEntity, Inventory inventory) {
@@ -113,11 +113,13 @@ public class ExcavatorLogic {
 
         int latestTorchItemIdx = Integer.MAX_VALUE;
         int latestRailItemIdx = Integer.MAX_VALUE;
-        int latestDrillItemIdx = Integer.MAX_VALUE;
+        int drillTypeIdx = 0;
 
         torchType = null;
         railType = null;
-        drillType = null;
+        for (int i = 0; i < DRILL_COUNT; i++) {
+            drillTypes[i] = null;
+        }
 
         for (int i = 0; i < excavatorInventory.size(); i++) {
             ItemStack itemStack = excavatorInventory.getStack(i);
@@ -138,11 +140,9 @@ public class ExcavatorLogic {
                     railType = (BlockItem) item;
                 }
             }else if (item instanceof ExcavatorDrill drill) {
-                int idx;
-
-                if((idx = ExcavatorMod.EXCAVATOR_USABLE_DRILL_ITEMS.indexOf(drill)) >=0 && latestDrillItemIdx > idx) {
-                    latestDrillItemIdx = idx;
-                    drillType = drill;
+                if(drillTypeIdx < DRILL_COUNT) {
+                    drillTypes[drillTypeIdx] = drill;
+                    drillTypeIdx++;
                 }
             }
         }
@@ -210,7 +210,13 @@ public class ExcavatorLogic {
     }
 
     public boolean isToolchainSet(){
-        return railType != null && drillType != null;
+        if(railType == null) return false;
+
+        for (int i = 0; i < DRILL_COUNT; i++) {
+            if(drillTypes[i] == null) return false;
+        }
+
+        return true;
     }
 
     public void tick() {
@@ -483,8 +489,8 @@ public class ExcavatorLogic {
 
         boolean byHand = !blockState.isToolRequired();
 
-        MiningToolItem pickaxeType = drillType.getPickAxe();
-        MiningToolItem shovelType = drillType.getShovel();
+        MiningToolItem pickaxeType = drillTypes[0].getPickAxe();
+        MiningToolItem shovelType = drillTypes[0].getShovel();
 
         boolean isPickAxe = pickaxeType.isSuitableFor(blockState);
         boolean isShovel = shovelType.isSuitableFor(blockState);
@@ -624,5 +630,10 @@ public class ExcavatorLogic {
         }
 
         return false;
+    }
+
+    private class MiningPos
+    {
+
     }
 }
