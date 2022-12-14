@@ -13,6 +13,7 @@ import net.minecraft.client.render.entity.MinecartEntityRenderer;
 import net.minecraft.client.render.entity.model.EntityModelLayers;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Vec3f;
 
 public class ExcavatorMinecartEntityRenderer extends MinecartEntityRenderer<ExcavatorMinecartEntity> {
     private static final int DRILL_ROTATION_PER_MIN = 14;
@@ -81,10 +82,9 @@ public class ExcavatorMinecartEntityRenderer extends MinecartEntityRenderer<Exca
 
     @Override
     public void render(ExcavatorMinecartEntity excavatorMinecartEntity, float yaw, float tickDelta, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int light) {
-        super.render(excavatorMinecartEntity, yaw, tickDelta, matrixStack, vertexConsumerProvider, light);
-
         //TODO mixin MinecartEntityRenderer to get the correct adjusted yaw from super
-
+        matrixStack.push();
+        matrixStack.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(180 - yaw));
         var vertexConsumer = vertexConsumerProvider.getBuffer(RenderLayer.getEntitySolid(new Identifier(ExcavatorMod.MOD_ID, "textures/entity/excavator.png")));
         root.getChild(BODY).render(matrixStack, vertexConsumer, light, OverlayTexture.DEFAULT_UV);
 
@@ -133,5 +133,8 @@ public class ExcavatorMinecartEntityRenderer extends MinecartEntityRenderer<Exca
             shaft.render(matrixStack, vertexConsumer, light, OverlayTexture.DEFAULT_UV);
             matrixStack.pop();
         }
+        matrixStack.pop();
+
+        super.render(excavatorMinecartEntity, yaw, tickDelta, matrixStack, vertexConsumerProvider, light);
     }
 }

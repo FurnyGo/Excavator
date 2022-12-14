@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ExcavatorMod implements ModInitializer {
+    public static final int TICK_PER_SECOND = 20;
     public static final String MOD_ID = "excavator";
     public static final Identifier EXCAVATOR_IDENTIFIER = new Identifier(MOD_ID, "excavator_minecart");
 
